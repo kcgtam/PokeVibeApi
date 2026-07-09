@@ -24,13 +24,25 @@ const corsHeaders = {
 };
 
 const AVAILABLE_ARTWORK_IDS = [
-  1, 3, 4, 5, 6, 7, 13, 14, 15, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27,
-  28, 29, 31, 32, 34, 36, 37, 38, 41, 43, 44, 47, 49, 52, 53, 55, 57, 61,
-  66, 68, 69, 70, 72, 73, 74, 75, 76, 78, 79, 81, 82, 84, 87, 89, 90, 91,
-  93, 94, 95, 97, 101, 102, 104, 105, 112, 113, 114, 115, 117, 118, 119,
-  123, 125, 132, 133, 134, 136, 137, 138, 140, 141, 142, 143, 144, 145,
-  146, 147, 149,
+  1, 3, 4, 5, 6, 7, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25,
+  26, 27, 28, 29, 31, 32, 33, 34, 36, 37, 38, 39, 41, 43, 44, 45, 46, 47,
+  49, 51, 52, 53, 55, 56, 57, 61, 64, 65, 66, 68, 69, 70, 72, 73, 74, 75,
+  76, 78, 79, 81, 82, 84, 87, 89, 90, 91, 93, 94, 95, 97, 100, 101, 102,
+  104, 105, 106, 112, 113, 114, 115, 117, 118, 119, 123, 124, 125, 126,
+  132, 133, 134, 136, 137, 138, 140, 141, 142, 143, 144, 145, 146, 147,
+  149,
 ];
+
+const MOOD_FILTERS = {
+  cute: [1, 7, 25, 27, 29, 35, 36, 37, 39, 52, 77, 79, 113, 133],
+  strong: [6, 34, 38, 59, 68, 76, 94, 112, 123, 125, 126, 130, 142, 143, 144, 145, 146, 149],
+  fast: [15, 18, 25, 26, 38, 49, 51, 53, 57, 65, 78, 85, 94, 100, 101, 123, 125, 135, 142, 145],
+  tanky: [3, 9, 31, 34, 36, 40, 68, 76, 80, 89, 91, 95, 112, 113, 115, 131, 143],
+  fire: [4, 5, 6, 37, 38, 58, 59, 77, 78, 126, 136, 146],
+  water: [7, 8, 9, 54, 55, 60, 61, 62, 72, 73, 79, 80, 86, 87, 90, 91, 98, 99, 116, 117, 118, 119, 120, 121, 129, 130, 131, 134, 138, 139, 140, 141],
+  electric: [25, 26, 81, 82, 100, 101, 125, 135, 145],
+  grass: [1, 2, 3, 43, 44, 45, 46, 47, 69, 70, 71, 102, 103, 114],
+};
 
 const client = new Client()
   .setEndpoint(config.endpoint)
@@ -279,13 +291,47 @@ export default async ({ req, res, log, error }) => {
     }
 
   if (path === "/random") {
-    const randomId = pickRandom(AVAILABLE_ARTWORK_IDS);
+    let mood = req.query?.mood;
+    if (!mood && req.queryString) {
+      const params = new URLSearchParams(req.queryString);
+      mood = params.get("mood");
+    }
+
+    let candidateIds = AVAILABLE_ARTWORK_IDS;
+    let selectedMood = null;
+
+    if (mood && MOOD_FILTERS[mood]) {
+      const moodIds = MOOD_FILTERS[mood];
+      const intersected = moodIds.filter((id) => AVAILABLE_ARTWORK_IDS.includes(id));
+      if (intersected.length > 0) {
+        candidateIds = intersected;
+        selectedMood = mood;
+      }
+    }
+
+    const randomId = pickRandom(candidateIds);
     const result = await getPokemonTabData(randomId);
 
-    return json(res, {
+    const responseData = {
       ...result.data,
       cached: result.cached,
-    });
+    };
+
+    if (process.env.NODE_ENV === "development") {
+      responseData.selectedMood = selectedMood;
+      responseData.candidateCount = candidateIds.length;
+    }
+
+    log(
+      JSON.stringify({
+        message: "Random Pokemon selected",
+        selectedMood,
+        candidateCount: candidateIds.length,
+        randomId,
+      })
+    );
+
+    return json(res, responseData);
   }
 
     return json(

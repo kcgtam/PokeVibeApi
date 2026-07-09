@@ -1,0 +1,158 @@
+{
+    "organizationId": "6a4e0bc46928d3c7b4f7",
+    "projectId": "6a4e0c150039f6912755",
+    "projectName": "PokéVibe API",
+    "endpoint": "https://sgp.cloud.appwrite.io/v1",
+    "settings": {
+        "services": {
+            "account": true,
+            "avatars": true,
+            "databases": true,
+            "locale": true,
+            "health": true,
+            "storage": true,
+            "teams": true,
+            "users": true,
+            "sites": true,
+            "functions": true,
+            "graphql": true,
+            "messaging": true
+        },
+        "protocols": {
+            "rest": true,
+            "graphql": true,
+            "websocket": true
+        },
+        "auth": {
+            "methods": {
+                "jwt": true,
+                "phone": true,
+                "invites": true,
+                "anonymous": true,
+                "email-otp": true,
+                "magic-url": true,
+                "email-password": true
+            },
+            "security": {
+                "duration": 31536000,
+                "limit": null,
+                "sessionsLimit": null,
+                "passwordHistory": null,
+                "passwordDictionary": false,
+                "personalDataCheck": false,
+                "sessionAlerts": false,
+                "mockNumbers": []
+            }
+        }
+    },
+    "functions": [
+        {
+            "$id": "6a4e0f0200190fc897cd",
+            "name": "pokevibe-api",
+            "runtime": "node-25",
+            "path": "functions/pokevibe-api",
+            "entrypoint": "src/main.js",
+            "execute": [
+                "any"
+            ],
+            "enabled": true,
+            "logging": true,
+            "events": [],
+            "schedule": "",
+            "timeout": 15,
+            "commands": "npm install",
+            "scopes": [
+                "users.read"
+            ],
+            "buildSpecification": "s-0.5vcpu-512mb",
+            "runtimeSpecification": "s-0.5vcpu-512mb",
+            "deploymentRetention": 0
+        }
+    ],
+    "tablesDB": [
+        {
+            "$id": "pokevibe",
+            "name": "pokevibe",
+            "enabled": true
+        }
+    ],
+    "tables": [
+        {
+            "$id": "pokemon_cache",
+            "$permissions": [],
+            "databaseId": "pokevibe",
+            "name": "pokemon_cache",
+            "enabled": true,
+            "rowSecurity": false,
+            "columns": [
+                {
+                    "key": "key",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "value",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 50000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "expiresAt",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "format": ""
+                },
+                {
+                    "key": "source",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 50,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "updatedAt",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "format": ""
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "key_idx",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "key"
+                    ],
+                    "orders": [
+                        "asc"
+                    ]
+                },
+                {
+                    "key": "expires_at_idx",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "expiresAt"
+                    ],
+                    "orders": [
+                        "asc"
+                    ]
+                }
+            ]
+        }
+    ]
+}

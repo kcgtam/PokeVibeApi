@@ -172,8 +172,40 @@ async function remember(key, fetcher) {
   return { data: fresh, cached: false };
 }
 
+function extractPokemonIdFromSpeciesUrl(url) {
+  const match = String(url || "").match(/\/pokemon-species\/(\d+)\/?$/);
+  return match ? Number(match[1]) : null;
+}
+
+function flattenEvolutionChain(chainNode) {
+  const result = [];
+
+  function walk(node) {
+    if (!node?.species) return;
+
+    const id = extractPokemonIdFromSpeciesUrl(node.species.url);
+    const name = node.species.name;
+
+    if (id && id >= 1 && id <= 151) {
+      result.push({
+        id,
+        name,
+        displayName: titleCaseFromSlug(name),
+        artwork: `${assetBaseUrl}/pokemon/official-artwork/${id}.webp`,
+      });
+    }
+
+    for (const next of node.evolves_to || []) {
+      walk(next);
+    }
+  }
+
+  walk(chainNode);
+  return result;
+}
+
 async function getPokemonTabData(nameOrId) {
-  const key = `pokemon:${String(nameOrId).toLowerCase()}:tab-data`;
+  const key = `pokemon:v2:${String(nameOrId).toLowerCase()}:tab-data`;
 
   return remember(key, async () => {
     const pokemon = await fetchJson(
@@ -193,6 +225,9 @@ async function getPokemonTabData(nameOrId) {
       .filter(Boolean)
       .slice(0, 6)
       .map(titleCaseFromSlug);
+
+    const evolution = await fetchJson(species.evolution_chain.url);
+    const evolutionChain = flattenEvolutionChain(evolution.chain);
 
     return {
       id: pokemon.id,
@@ -222,6 +257,7 @@ async function getPokemonTabData(nameOrId) {
         shape: species.shape?.name ? titleCaseFromSlug(species.shape.name) : null,
       },
       encounters: locations,
+      evolutionChain,
     };
   });
 }

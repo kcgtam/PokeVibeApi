@@ -23,15 +23,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-const AVAILABLE_ARTWORK_IDS = [
-  1, 3, 4, 5, 6, 7, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25,
-  26, 27, 28, 29, 31, 32, 33, 34, 36, 37, 38, 39, 41, 43, 44, 45, 46, 47,
-  49, 51, 52, 53, 55, 56, 57, 61, 64, 65, 66, 68, 69, 70, 72, 73, 74, 75,
-  76, 78, 79, 81, 82, 84, 87, 89, 90, 91, 93, 94, 95, 97, 100, 101, 102,
-  104, 105, 106, 112, 113, 114, 115, 117, 118, 119, 123, 124, 125, 126,
-  132, 133, 134, 136, 137, 138, 140, 141, 142, 143, 144, 145, 146, 147,
-  149,
-];
+const AVAILABLE_ARTWORK_IDS = Array.from(
+  { length: 151 },
+  (_, index) => index + 1
+);
 
 const MOOD_FILTERS = {
   cute: [1, 7, 25, 27, 29, 35, 36, 37, 39, 52, 77, 79, 113, 133],
@@ -242,6 +237,17 @@ function pickRandom(items) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+function getCandidateIdsForMood(mood) {
+  if (!mood || !MOOD_FILTERS[mood]) {
+    return AVAILABLE_ARTWORK_IDS;
+  }
+
+  const availableSet = new Set(AVAILABLE_ARTWORK_IDS);
+  const filtered = MOOD_FILTERS[mood].filter((id) => availableSet.has(id));
+
+  return filtered.length > 0 ? filtered : AVAILABLE_ARTWORK_IDS;
+}
+
 export default async ({ req, res, log, error }) => {
   const method = req.method || "GET";
   const path = req.path || "/";
@@ -291,47 +297,29 @@ export default async ({ req, res, log, error }) => {
     }
 
   if (path === "/random") {
-    let mood = req.query?.mood;
-    if (!mood && req.queryString) {
+    let rawMood = req.query?.mood;
+    if (!rawMood && req.queryString) {
       const params = new URLSearchParams(req.queryString);
-      mood = params.get("mood");
+      rawMood = params.get("mood");
     }
-
-    let candidateIds = AVAILABLE_ARTWORK_IDS;
-    let selectedMood = null;
-
-    if (mood && MOOD_FILTERS[mood]) {
-      const moodIds = MOOD_FILTERS[mood];
-      const intersected = moodIds.filter((id) => AVAILABLE_ARTWORK_IDS.includes(id));
-      if (intersected.length > 0) {
-        candidateIds = intersected;
-        selectedMood = mood;
-      }
-    }
-
+    const mood = String(rawMood || "").toLowerCase();
+    const candidateIds = getCandidateIdsForMood(mood);
     const randomId = pickRandom(candidateIds);
     const result = await getPokemonTabData(randomId);
-
-    const responseData = {
-      ...result.data,
-      cached: result.cached,
-    };
-
-    if (process.env.NODE_ENV === "development") {
-      responseData.selectedMood = selectedMood;
-      responseData.candidateCount = candidateIds.length;
-    }
 
     log(
       JSON.stringify({
         message: "Random Pokemon selected",
-        selectedMood,
+        mood,
         candidateCount: candidateIds.length,
         randomId,
       })
     );
 
-    return json(res, responseData);
+    return json(res, {
+      ...result.data,
+      cached: result.cached,
+    });
   }
 
     return json(

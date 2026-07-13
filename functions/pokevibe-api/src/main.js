@@ -16,6 +16,7 @@ const config = {
 
 const assetBaseUrl =
   process.env.ASSET_BASE_URL || "https://assets.pokevibetab.app";
+const CACHE_SCHEMA_VERSION = "v3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,6 +67,90 @@ function titleCaseFromSlug(value) {
   return value
     .replace(/-/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function normalizeRegionFromLocationName(locationAreaName) {
+  const value = String(locationAreaName || "").toLowerCase();
+  const knownRegions = [
+    "kanto",
+    "johto",
+    "hoenn",
+    "sinnoh",
+    "unova",
+    "kalos",
+    "alola",
+    "galar",
+    "hisui",
+    "paldea",
+  ];
+
+  const matched = knownRegions.find((region) => value.includes(region));
+  return matched ? titleCaseFromSlug(matched) : null;
+}
+
+function getLevelRange(details) {
+  const minLevels = details
+    .map((item) => item.min_level)
+    .filter((value) => Number.isFinite(value));
+  const maxLevels = details
+    .map((item) => item.max_level)
+    .filter((value) => Number.isFinite(value));
+
+  return {
+    minLevel: minLevels.length > 0 ? Math.min(...minLevels) : null,
+    maxLevel: maxLevels.length > 0 ? Math.max(...maxLevels) : null,
+  };
+}
+
+function normalizeEncounterDetails(encounters) {
+  return encounters
+    .map((encounter) => {
+      const locationAreaName = encounter.location_area?.name || "";
+      const versionDetails = encounter.version_details || [];
+      const allEncounterDetails = versionDetails.flatMap(
+        (versionDetail) => versionDetail.encounter_details || []
+      );
+      const { minLevel, maxLevel } = getLevelRange(allEncounterDetails);
+      const chances = allEncounterDetails
+        .map((detail) => detail.chance)
+        .filter((value) => Number.isFinite(value));
+      const maxChances = versionDetails
+        .map((versionDetail) => versionDetail.max_chance)
+        .filter((value) => Number.isFinite(value));
+
+      return {
+        locationAreaName,
+        displayName: titleCaseFromSlug(locationAreaName),
+        region: normalizeRegionFromLocationName(locationAreaName),
+        methods: unique(
+          allEncounterDetails.map((detail) =>
+            titleCaseFromSlug(detail.method?.name)
+          )
+        ),
+        versions: unique(
+          versionDetails.map((versionDetail) =>
+            titleCaseFromSlug(versionDetail.version?.name)
+          )
+        ),
+        minLevel,
+        maxLevel,
+        chance: chances.length > 0 ? Math.max(...chances) : null,
+        maxChance: maxChances.length > 0 ? Math.max(...maxChances) : null,
+        conditions: unique(
+          allEncounterDetails.flatMap((detail) =>
+            (detail.condition_values || []).map((condition) =>
+              titleCaseFromSlug(condition.name)
+            )
+          )
+        ),
+      };
+    })
+    .filter((item) => item.displayName)
+    .slice(0, 10);
 }
 
 function getStat(stats, name) {
@@ -205,7 +290,7 @@ function flattenEvolutionChain(chainNode) {
 }
 
 async function getPokemonTabData(nameOrId) {
-  const key = `pokemon:v2:${String(nameOrId).toLowerCase()}:tab-data`;
+  const key = `pokemon:v2:${String(nameOrId).toLowerCase()}:tab-data:${CACHE_SCHEMA_VERSION}`;
 
   return remember(key, async () => {
     const pokemon = await fetchJson(
@@ -225,6 +310,7 @@ async function getPokemonTabData(nameOrId) {
       .filter(Boolean)
       .slice(0, 6)
       .map(titleCaseFromSlug);
+    const encounterDetails = normalizeEncounterDetails(encounters);
 
     const evolution = await fetchJson(species.evolution_chain.url);
     const evolutionChain = flattenEvolutionChain(evolution.chain);
@@ -257,6 +343,7 @@ async function getPokemonTabData(nameOrId) {
         shape: species.shape?.name ? titleCaseFromSlug(species.shape.name) : null,
       },
       encounters: locations,
+      encounterDetails,
       evolutionChain,
     };
   });
